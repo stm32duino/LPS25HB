@@ -124,11 +124,11 @@ class LPS25HBSensor
     }
 
   private:
-	/* Configuration */
-    uint8_t address;
-
     /* Helper classes. */
     TwoWire *dev_i2c;
+	
+	/* Configuration */
+    uint8_t address;
 };
 
 #ifdef __cplusplus
