@@ -41,7 +41,6 @@
 #include "Arduino.h"
 #include "Wire.h"
 #include "LPS25HBSensor.h"
-#include "LPS25HB_Driver.h"
 
 
 /* Class Implementation ------------------------------------------------------*/
