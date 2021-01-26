@@ -39,99 +39,102 @@
 /* Includes ------------------------------------------------------------------*/
 
 #include "Arduino.h"
-#include "Wire.h"
 #include "LPS25HBSensor.h"
 
 
 /* Class Implementation ------------------------------------------------------*/
-
-/** Constructor
- * @param i2c object of an helper class which handles the I2C peripheral
- * @param address the address of the component's instance
- */
-LPS25HBSensor::LPS25HBSensor(TwoWire *i2c) : dev_i2c(i2c)
-{
-  address = LPS25HB_ADDRESS_HIGH;
-
-  /* Power down the device */
-  if ( LPS25HB_DeActivate( (void *)this ) == LPS25HB_ERROR )
-  {
-    return;
-  }
-
-  if ( SetODR( 1.0f ) == LPS25HB_STATUS_ERROR )
-  {
-    return;
-  }
-
-  /* Enable interrupt circuit */
-  if ( LPS25HB_Set_InterruptCircuitEnable( (void *)this, LPS25HB_ENABLE ) == LPS25HB_ERROR )
-  {
-    return;
-  }
-
-  /* Set block data update mode */
-  if ( LPS25HB_Set_Bdu( (void *)this, LPS25HB_BDU_NO_UPDATE ) == LPS25HB_ERROR )
-  {
-    return;
-  }
-
-  /* Set SPI mode */
-  if ( LPS25HB_Set_SpiInterface( (void *)this, LPS25HB_SPI_4_WIRE ) == LPS25HB_ERROR )
-  {
-    return;
-  }
-
-  /* Set internal averaging sample counts for pressure and temperature */
-  if ( LPS25HB_Set_Avg( (void *)this, LPS25HB_AVGP_32, LPS25HB_AVGT_16 ) == LPS25HB_ERROR )
-  {
-    return;
-  }
-};
-
-
 /** Constructor
  * @param i2c object of an helper class which handles the I2C peripheral
  * @param address the address of the component's instance
  */
 LPS25HBSensor::LPS25HBSensor(TwoWire *i2c, uint8_t address) : dev_i2c(i2c), address(address)
 {
+  dev_spi = NULL;
+}
+
+/** Constructor
+ * @param spi object of an helper class which handles the SPI peripheral
+ * @param cs_pin the chip select pin
+ * @param spi_speed the SPI speed
+ */
+LPS25HBSensor::LPS25HBSensor(SPIClass *spi, int cs_pin, uint32_t spi_speed) : dev_spi(spi), cs_pin(cs_pin), spi_speed(spi_speed)
+{
+  dev_i2c = NULL;
+  address = 0;
+}
+
+/**
+ * @brief  Configure the sensor in order to be used
+ * @retval 0 in case of success, an error code otherwise
+ */
+LPS25HBStatusTypeDef LPS25HBSensor::begin(void)
+{
+  if(dev_spi)
+  {
+    // Configure CS pin
+    pinMode(cs_pin, OUTPUT);
+    digitalWrite(cs_pin, HIGH); 
+  }
+
   /* Power down the device */
   if ( LPS25HB_DeActivate( (void *)this ) == LPS25HB_ERROR )
   {
-    return;
+    return LPS25HB_STATUS_ERROR;
   }
 
   if ( SetODR( 1.0f ) == LPS25HB_STATUS_ERROR )
   {
-    return;
+    return LPS25HB_STATUS_ERROR;
   }
 
   /* Enable interrupt circuit */
   if ( LPS25HB_Set_InterruptCircuitEnable( (void *)this, LPS25HB_ENABLE ) == LPS25HB_ERROR )
   {
-    return;
+    return LPS25HB_STATUS_ERROR;
   }
 
   /* Set block data update mode */
   if ( LPS25HB_Set_Bdu( (void *)this, LPS25HB_BDU_NO_UPDATE ) == LPS25HB_ERROR )
   {
-    return;
+    return LPS25HB_STATUS_ERROR;
   }
 
   /* Set SPI mode */
   if ( LPS25HB_Set_SpiInterface( (void *)this, LPS25HB_SPI_4_WIRE ) == LPS25HB_ERROR )
   {
-    return;
+    return LPS25HB_STATUS_ERROR;
   }
 
   /* Set internal averaging sample counts for pressure and temperature */
   if ( LPS25HB_Set_Avg( (void *)this, LPS25HB_AVGP_32, LPS25HB_AVGT_16 ) == LPS25HB_ERROR )
   {
-    return;
+    return LPS25HB_STATUS_ERROR;
   }
-};
 
+  return LPS25HB_STATUS_OK;
+}
+
+/**
+ * @brief  Disable the sensor and relative resources
+ * @retval 0 in case of success, an error code otherwise
+ */
+LPS25HBStatusTypeDef LPS25HBSensor::end(void)
+{
+  /* Disable pressure and temperature sensor */
+  if (Disable() != LPS25HB_STATUS_OK)
+  {
+    return LPS25HB_STATUS_ERROR;
+  }
+
+  /* Reset CS configuration */
+  if(dev_spi)
+  {
+    // Configure CS pin
+    pinMode(cs_pin, INPUT); 
+  }
+
+  return LPS25HB_STATUS_OK;
+}
 
 /**
  * @brief  Enable LPS25HB

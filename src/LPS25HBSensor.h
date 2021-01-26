@@ -45,6 +45,7 @@
 /* Includes ------------------------------------------------------------------*/
 
 #include "Wire.h"
+#include "SPI.h"
 #include "LPS25HB_Driver.h"
 
 /* Typedefs ------------------------------------------------------------------*/
@@ -65,8 +66,10 @@ typedef enum
 class LPS25HBSensor
 {
   public:
-    LPS25HBSensor                       (TwoWire *i2c);
-    LPS25HBSensor                       (TwoWire *i2c, uint8_t address);
+    LPS25HBSensor                       (TwoWire *i2c, uint8_t address=LPS25HB_ADDRESS_HIGH);
+    LPS25HBSensor                       (SPIClass *spi, int cs_pin, uint32_t spi_speed=2000000);
+    LPS25HBStatusTypeDef begin          (void);
+    LPS25HBStatusTypeDef end            (void);
     LPS25HBStatusTypeDef Enable         (void);
     LPS25HBStatusTypeDef Disable        (void);
     LPS25HBStatusTypeDef ReadID         (uint8_t *ht_id);
@@ -87,20 +90,43 @@ class LPS25HBSensor
      */
     uint8_t IO_Read(uint8_t* pBuffer, uint8_t RegisterAddr, uint16_t NumByteToRead)
     {
-      dev_i2c->beginTransmission(((uint8_t)(((address) >> 1) & 0x7F)));
-      dev_i2c->write(RegisterAddr);
-      dev_i2c->endTransmission(false);
+      if (dev_spi) {
+        dev_spi->beginTransaction(SPISettings(spi_speed, MSBFIRST, SPI_MODE3));
 
-      dev_i2c->requestFrom(((uint8_t)(((address) >> 1) & 0x7F)), (byte) NumByteToRead);
+        digitalWrite(cs_pin, LOW);
 
-      int i=0;
-      while (dev_i2c->available())
-      {
-        pBuffer[i] = dev_i2c->read();
-        i++;
+        /* Write Reg Address */
+        dev_spi->transfer(RegisterAddr | 0x80);
+        /* Read the data */
+        for (uint16_t i=0; i<NumByteToRead; i++) {
+          *(pBuffer+i) = dev_spi->transfer(0x00);
+        }
+         
+        digitalWrite(cs_pin, HIGH);
+
+        dev_spi->endTransaction();
+
+        return 0;
       }
 
-      return 0;
+      if(dev_i2c) {
+        dev_i2c->beginTransmission(((uint8_t)(((address) >> 1) & 0x7F)));
+        dev_i2c->write(RegisterAddr);
+        dev_i2c->endTransmission(false);
+
+        dev_i2c->requestFrom(((uint8_t)(((address) >> 1) & 0x7F)), (byte) NumByteToRead);
+
+        int i=0;
+        while (dev_i2c->available())
+        {
+          pBuffer[i] = dev_i2c->read();
+          i++;
+        }
+
+        return 0;
+      }
+
+      return 1;
     }
     
     /**
@@ -112,23 +138,49 @@ class LPS25HBSensor
      */
     uint8_t IO_Write(uint8_t* pBuffer, uint8_t RegisterAddr, uint16_t NumByteToWrite)
     {
-      dev_i2c->beginTransmission(((uint8_t)(((address) >> 1) & 0x7F)));
+      if (dev_spi) {
+        dev_spi->beginTransaction(SPISettings(spi_speed, MSBFIRST, SPI_MODE3));
 
-      dev_i2c->write(RegisterAddr);
-      for (int i = 0 ; i < NumByteToWrite ; i++)
-        dev_i2c->write(pBuffer[i]);
+        digitalWrite(cs_pin, LOW);
 
-      dev_i2c->endTransmission(true);
+        /* Write Reg Address */
+        dev_spi->transfer(RegisterAddr);
+        /* Write the data */
+        for (uint16_t i=0; i<NumByteToWrite; i++) {
+          dev_spi->transfer(pBuffer[i]);
+        }
 
-      return 0;
+        digitalWrite(cs_pin, HIGH);
+
+        dev_spi->endTransaction();
+
+        return 0;                    
+      }
+
+      if (dev_i2c) {
+        dev_i2c->beginTransmission(((uint8_t)(((address) >> 1) & 0x7F)));
+
+        dev_i2c->write(RegisterAddr);
+        for (int i = 0 ; i < NumByteToWrite ; i++)
+          dev_i2c->write(pBuffer[i]);
+
+        dev_i2c->endTransmission(true);
+
+        return 0;
+      }
+
+      return 1;
     }
 
   private:
     /* Helper classes. */
     TwoWire *dev_i2c;
-	
+    SPIClass *dev_spi;
+
 	/* Configuration */
     uint8_t address;
+    int cs_pin;
+    uint32_t spi_speed;
 };
 
 #ifdef __cplusplus
