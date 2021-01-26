@@ -51,7 +51,7 @@
 #endif
 
 // Components.
-LPS25HBSensor  *PressTemp;
+LPS25HBSensor PressTemp(&DEV_I2C);
 
 void setup() {
   // Led.
@@ -63,9 +63,9 @@ void setup() {
   // Initialize I2C bus.
   DEV_I2C.begin();
 
-  // Initlialize components.
-  PressTemp = new LPS25HBSensor (&DEV_I2C);
-  PressTemp->Enable();
+  // Initialize components.
+  PressTemp.begin();
+  PressTemp.Enable();
 }
 
 void loop() {
@@ -77,8 +77,8 @@ void loop() {
   
   // Read pressure and temperature.
   float pressure, temperature;
-  PressTemp->GetPressure(&pressure);
-  PressTemp->GetTemperature(&temperature);
+  PressTemp.GetPressure(&pressure);
+  PressTemp.GetTemperature(&temperature);
 
   // Output data.
   SerialPort.print("| Pres[hPa]: ");
